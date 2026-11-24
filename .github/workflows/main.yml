@@ -1,0 +1,55 @@
+name: Build Mushaf Ali APK
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Unpack ZIP if uploaded directly
+        run: |
+          if [ ! -f "settings.gradle" ]; then
+            ZIP_FILE=$(find . -maxdepth 2 -name "*.zip" | head -n 1)
+            if [ -n "$ZIP_FILE" ]; then
+              echo "Extracting $ZIP_FILE ..."
+              unzip -o "$ZIP_FILE" -d unpacked_project
+            fi
+          fi
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
+
+      - name: Build Signed Release APK
+        run: |
+          SETTINGS_PATH=$(find . -name "settings.gradle" | head -n 1)
+          if [ -z "$SETTINGS_PATH" ]; then
+            echo "ERROR: ملفات المشروع أو ملف الـ ZIP غير موجودة داخل المستودع"
+            ls -la
+            exit 1
+          fi
+          PROJECT_DIR=$(dirname "$SETTINGS_PATH")
+          echo "Building Android project in: $PROJECT_DIR"
+          cd "$PROJECT_DIR"
+          gradle assembleRelease --no-daemon
+          cp app/build/outputs/apk/release/app-release.apk "$GITHUB_WORKSPACE/Mushaf-Ali-Quran-v9.apk"
+
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Mushaf-Ali-Quran-APK-v9
+          path: Mushaf-Ali-Quran-v9.apk
+          retention-days: 90
